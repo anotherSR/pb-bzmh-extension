@@ -1,9 +1,9 @@
 {
-  "name": "extensions-main",
+  "name": "baozimh",
   "version": "1.3.2",
   "repositoryName": "包子漫画",
   "repositoryDescription": "",
-  "baseURL": "https://hanqinilnix.github.io/paperback-baozimh-extension/",
+  "baseURL": "https://anotherSR.github.io/pb-bzmh-extension/",
   "description": "The extension source for Paperback, 包子漫画",
   "main": "index.js",
   "scripts": {
