@@ -367,14 +367,14 @@ __exportStar(require("./SearchFilter"), exports);
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Baozimh = exports.BaozimhInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
-const BAOZIMH_DOMAIN = 'https://cn.baozimh.com';
+const BAOZIMH_DOMAIN = 'https://baozimh.com';
 exports.BaozimhInfo = {
     name: "包子漫画",
     description: "",
     icon: "icon.png",
     version: "1.3.2",
-    author: "hanqinilnix",
-    authorWebsite: "https://github.com/hanqinilnix",
+    author: "anotherSR | hanqinilnix",
+    authorWebsite: "https://github.com/anotherSR",
     contentRating: paperback_extensions_common_1.ContentRating.EVERYONE,
     websiteBaseURL: BAOZIMH_DOMAIN,
     language: paperback_extensions_common_1.LanguageCode.CHINEESE,
@@ -440,6 +440,7 @@ class Baozimh extends paperback_extensions_common_1.Source {
         let $ = this.cheerio.load(response.data);
         let getChapterNumber = (link) => {
             let chapterNumber = '';
+            console.log(link);
             let i = link.length - 1;
             while (link[i] != '=') {
                 chapterNumber = link[i] + chapterNumber;
@@ -467,26 +468,70 @@ class Baozimh extends paperback_extensions_common_1.Source {
         });
     }
     async getChapterDetails(mangaId, chapterId) {
-        let request = createRequestObject({
-            url: BAOZIMH_DOMAIN + chapterId,
-            method: 'GET'
-        });
-        let response = await this.requestManager.schedule(request, 1);
-        let $ = this.cheerio.load(response.data);
-        // get the total number of pages of the chapter
-        let numOfPages = +$('.comic-text__amp').first().text().trim().split('/')[1];
-        // get the first page url as sample for the rest of the chapter page
-        let samplePageUrl = $('.comic-contain__item').first().attr('src').trim().split('/');
-        let pages = [];
-        for (let i = 1; i <= numOfPages; i++) {
-            samplePageUrl.pop();
-            samplePageUrl.push(String(i) + '.jpg');
-            pages.push(samplePageUrl.join('/'));
+        const comicId = chapterId.replace(/.*comic_id=/, '').replace(/&.*/, '');
+        const sectionSolt = chapterId.replace(/.*section_slot=/, '').replace(/&.*/, '');
+        const chapterSlot = chapterId.replace(/.*chapter_slot=/, '').replace(/&.*/, '');
+        const descUrl = `https://www.webmota.com/comic/chapter/${comicId}/${sectionSolt}_${chapterSlot}.html`;
+        // TODO: optimzie code and remove node-fetch
+        // From:https://github.com/HaleyLeoZhang/node_puppeteer_framework/blob/master/es6/services/Comic/BaoZiService.js
+        let image_list = [];
+        const image_map = {}; // 去重，这个渠道，图片翻页可能出现重复的
+        let has_more = true;
+        for (let i = 1; has_more; i++) {
+            // list one
+            let request = createRequestObject({
+                url: descUrl.replace(".html", `_${i}.html`),
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E; QQBrowser/7.0.3698.400)',
+                }
+            });
+            const image_list_one_page = await await this.requestManager.schedule(request, 1)
+                .then((res) => res.data)
+                .then((html) => {
+                const image_list_temp = [];
+                const $1 = this.cheerio.load(html);
+                const image_object_list = $1(".comic-contain__item");
+                const image_length = image_object_list.length;
+                for (let i = 0; i < image_length; i++) {
+                    const src = image_object_list.eq(i).attr("src");
+                    image_list_temp.push(src);
+                }
+                return image_list_temp;
+            });
+            const len_one_page = image_list_one_page.length;
+            const len_img = image_list.length;
+            if (len_one_page === 0) {
+                has_more = false;
+                continue;
+            }
+            else if (len_img > 0 && (image_list_one_page[len_one_page - 1] === image_list[len_img - 1])) {
+                // 如果最后一张图一样，说明已经到最后一页了
+                has_more = false;
+                continue;
+            }
+            // 处理翻页重复图片问题
+            const image_list_raw = [];
+            for (let j = 0; j < image_list_one_page.length; j++) {
+                let img_key = image_list_one_page[j];
+                img_key = img_key != undefined ? img_key : '';
+                if (img_key.length == 0) {
+                    continue;
+                }
+                if (image_map[img_key] === 1) {
+                    // console.log("重复图，跳过")
+                    continue;
+                }
+                image_map[img_key] = 1;
+                image_list_raw.push(img_key);
+            }
+            // 合并内容
+            image_list = image_list.concat(image_list_raw);
         }
         return createChapterDetails({
             id: chapterId,
             mangaId: mangaId,
-            pages: pages,
+            pages: image_list,
             longStrip: true
         });
     }
