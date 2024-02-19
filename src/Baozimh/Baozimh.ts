@@ -107,11 +107,11 @@ export class Baozimh extends Source {
             return +chapterNumber
         }
         
-        let sections = $('.l-box > .pure-g').toArray().length
+        let sections = $('.l-box > .pure-g:not(.recommend)').toArray().length
         let chapters
         
         if (sections == 1) {
-            chapters = $('.l-box > .pure-g > div > a').toArray();
+            chapters = $('.l-box > .pure-g:not(.recommend) > div > a').toArray();
         } else {
             chapters = $('.l-box > .pure-g[id^=chapter] > div > a').toArray()
         }
